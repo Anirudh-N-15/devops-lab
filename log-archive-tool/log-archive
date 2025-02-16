@@ -1,2 +1,84 @@
 #!/usr/bin/env python3
+import os
+import sys
+import tarfile
+import datetime
+import shutil
+from pathlib import Path
+import logging
 
+def setup_logging():
+    """Configure logging to write to both console and file"""
+    logging.basicConfig(
+        level=logging.INFO,
+        format='%(asctime)s - %(levelname)s - %(message)s',
+        handlers=[
+            logging.FileHandler('log_archive.log'),
+            logging.StreamHandler()
+        ]
+    )
+
+def create_archive(source_dir, archive_dir):
+    """
+    Create a compressed archive of logs from source directory
+    
+    Args:
+        source_dir (str): Path to directory containing logs
+        archive_dir (str): Path to directory where archive will be stored
+    """
+    # Create timestamp for archive name
+    timestamp = datetime.datetime.now().strftime('%Y%m%d_%H%M%S')
+    archive_name = f'logs_archive_{timestamp}.tar.gz'
+    archive_path = os.path.join(archive_dir, archive_name)
+    
+    try:
+        # Create archive directory if it doesn't exist
+        Path(archive_dir).mkdir(parents=True, exist_ok=True)
+        
+        # Create tar.gz archive
+        with tarfile.open(archive_path, 'w:gz') as tar:
+            # Walk through source directory
+            for root, dirs, files in os.walk(source_dir):
+                for file in files:
+                    file_path = os.path.join(root, file)
+                    # Add file to archive
+                    tar.add(file_path, arcname=os.path.relpath(file_path, source_dir))
+        
+        logging.info(f'Successfully created archive: {archive_path}')
+        return True
+        
+    except Exception as e:
+        logging.error(f'Error creating archive: {str(e)}')
+        return False
+
+def main():
+    """Main function to handle log archiving process"""
+    # Setup logging
+    setup_logging()
+    
+    # Check if source directory was provided
+    if len(sys.argv) != 2:
+        logging.error('Please provide the log directory as an argument')
+        print('Usage: log-archive <log-directory>')
+        sys.exit(1)
+    
+    # Get source directory from command line argument
+    source_dir = sys.argv[1]
+    
+    # Validate source directory exists
+    if not os.path.isdir(source_dir):
+        logging.error(f'Directory not found: {source_dir}')
+        sys.exit(1)
+    
+    # Create archive directory name
+    archive_dir = os.path.join(os.path.dirname(source_dir), 'log_archives')
+    
+    # Create archive
+    if create_archive(source_dir, archive_dir):
+        logging.info('Archive process completed successfully')
+    else:
+        logging.error('Archive process failed')
+        sys.exit(1)
+
+if __name__ == '__main__':
+    main()
